@@ -1,4 +1,7 @@
 # Created by .ignore support plugin (hsz.mobi)
+## data
+./data/daily/*
+
 
 ### Windows template
 # Windows thumbnail cache files
