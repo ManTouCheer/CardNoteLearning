@@ -1,5 +1,5 @@
 # card_note_learning
-
+卡片学习法
 ## 1. Overview
 
 My Awesome Project!
@@ -19,3 +19,4 @@ TODO
 ## 3. Develop
 
 You may need to read the [develop document](./docs/development.md) to use SRC Layout in your IDE.
+
