@@ -180,3 +180,5 @@ venv.bak/
 
 ### Jebrains template
 .idea
+/data/diary/
+/data/img/
