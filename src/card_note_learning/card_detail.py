@@ -2,10 +2,13 @@ import os
 import re
 
 from PySide6.QtGui import QTextImageFormat, QPixmap
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QPlainTextEdit, QHBoxLayout, QPushButton, QMessageBox, QTextEdit, QLineEdit
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QPlainTextEdit, QHBoxLayout, QPushButton, QMessageBox, QTextEdit, \
+    QLineEdit, QComboBox, QListWidget, QSizePolicy
 
 from src.card_note_learning.signal_bus import signal_bus
 from src.utils.m_logging import log
+from utils.diary_file_processer import DiaryFileProcesser, get_op_file_path
+from utils.m_config import DATA_TOP
 
 
 class EditTextForImage(QTextEdit):
@@ -16,7 +19,7 @@ class EditTextForImage(QTextEdit):
         super().__init__(parent)
         self.setAcceptDrops(True)
         self.parent_edit = parent
-        self.content_path = ""
+        # self.content_path = ""
 
     def dragEnterEvent(self, e):
         """拖拽进入事件处理"""
@@ -57,6 +60,9 @@ class EditTextForImage(QTextEdit):
 
 
 class TitleWin(QLineEdit):
+    """
+    可双击编辑标题的单行文本框
+    """
     def __init__(self, title, parent=None):
         super().__init__(parent)
         self.title = title
@@ -73,20 +79,30 @@ class TitleWin(QLineEdit):
         super().mouseDoubleClickEvent(event)
 
 
+class LinkList(QListWidget):
+    """
+    关联链接列表
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.cur_item = None
+        self.doubleClicked.connect(self.doubleClicked_delete_item)
+
+    # def addItem(self, item, /):
+    #     self.addItem(item)
+
+    def doubleClicked_delete_item(self, index):
+        self.cur_item = self.takeItem(index.row())
+
+
+
+
 
 class CardDetail(QWidget):
-    TITLE_BEGIN = "===TITLE_BEGIN==="
-    TITLE_END = "===TITLE_END==="
-    HTML_BEGIN = "===BEGIN_HTML==="
-    HTML_END = "===END_HTML==="
-    LINK_BEGIN = "===BEGIN_TEXT==="
-    LINK_END = "===END_TEXT==="
     def __init__(self,_id, title, data_path, parent=None):
         super().__init__()
         self._id = _id
         self.title = title
-        self.content_path = os.path.join(data_path, f"content_{self._id}.html")
-        self.link_path = os.path.join(data_path, f"links_{self._id}.txt")
         self.file_path = os.path.join(data_path, f"{self._id}.txt")
         self.initUI()
         self.load_file()
@@ -103,8 +119,24 @@ class CardDetail(QWidget):
 
         self.content = EditTextForImage()
         self.content.setAcceptRichText(True)
+        self.links_combo = QComboBox()
+        self.links_combo_btn = QPushButton("确定")
+        self.links_combo_btn.clicked.connect(self.add_link)
+        self.links_combo_btn.setMaximumWidth(150)
+        combo_layout = QHBoxLayout()
+        combo_layout.addWidget(self.links_combo)
+        combo_layout.addWidget(self.links_combo_btn)
+        self.links_related = LinkList()
+        self.links_related.doubleClicked.connect(self.delete_link)
+        link_layout_l = QVBoxLayout()
+        link_layout_l.addLayout(combo_layout)
+        link_layout_l.addWidget(self.links_related)
         self.links = QPlainTextEdit()
-        self.links.setMaximumHeight(150)
+        self.links.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Expanding)
+
+        link_layout_r = QHBoxLayout()
+        link_layout_r.addLayout(link_layout_l)
+        link_layout_r.addWidget(self.links)
 
         self.layout_btn = QHBoxLayout()
         self.save_btn = QPushButton("保存")
@@ -118,108 +150,92 @@ class CardDetail(QWidget):
 
         self.card_l.addWidget(self.title_edit)
         self.card_l.addWidget(self.content)
-        self.card_l.addWidget(self.links)
+        self.card_l.addLayout(link_layout_r)
         self.card_l.addLayout(self.layout_btn)
 
+    @property
+    def links_related_list(self):
+        return [self.links_related.item(idx).text() for idx in range(self.links_related.count())]
+
     def load_file(self):
-        if not os.path.exists(self.file_path):
-            return
+        file_processer = DiaryFileProcesser(self.file_path)
+        title_content = file_processer.get_title()
+        html_content = file_processer.get_content_html()
+        link_text_content = file_processer.get_links_text()
+        link_content = file_processer.get_links()
 
-        # 读取文件内容
-        with open(self.file_path, "r", encoding="utf-8") as f:
-            content = f.read()
-
-        # 用正则表达式匹配分隔符之间的内容（保留原格式）
-        title_pattern = re.compile(
-            f"{re.escape(CardDetail.TITLE_BEGIN)}(.*?){re.escape(CardDetail.TITLE_END)}",
-            re.DOTALL  # 让.匹配换行符
-        )
-        html_pattern = re.compile(
-            f"{re.escape(CardDetail.HTML_BEGIN)}(.*?){re.escape(CardDetail.HTML_END)}",
-            re.DOTALL  # 让.匹配换行符
-        )
-        link_pattern = re.compile(
-            f"{re.escape(CardDetail.LINK_BEGIN)}(.*?){re.escape(CardDetail.LINK_END)}",
-            re.DOTALL
-        )
-
-        # 提取内容（去除首尾空白）
-        title_match = title_pattern.search(content)
-        html_match = html_pattern.search(content)
-        link_match = link_pattern.search(content)
-
-        title_content = title_match.group(1).strip() if title_match else ""
-        html_content = html_match.group(1).strip() if html_match else ""
-        link_content = link_match.group(1).strip() if link_match else ""
+        for card in DATA_TOP:
+            self.links_combo.addItem(card['title'])
+        # if not os.path.exists(self.file_path):
+        #     return
+        #
+        # # 读取文件内容
+        # with open(self.file_path, "r", encoding="utf-8") as f:
+        #     content = f.read()
+        #
+        # # 用正则表达式匹配分隔符之间的内容（保留原格式）
+        # title_pattern = re.compile(
+        #     f"{re.escape(CardDetail.TITLE_BEGIN)}(.*?){re.escape(CardDetail.TITLE_END)}",
+        #     re.DOTALL  # 让.匹配换行符
+        # )
+        # html_pattern = re.compile(
+        #     f"{re.escape(CardDetail.HTML_BEGIN)}(.*?){re.escape(CardDetail.HTML_END)}",
+        #     re.DOTALL  # 让.匹配换行符
+        # )
+        # link_pattern = re.compile(
+        #     f"{re.escape(CardDetail.LINK_BEGIN)}(.*?){re.escape(CardDetail.LINK_END)}",
+        #     re.DOTALL
+        # )
+        #
+        # # 提取内容（去除首尾空白）
+        # title_match = title_pattern.search(content)
+        # html_match = html_pattern.search(content)
+        # link_match = link_pattern.search(content)
+        #
+        # title_content = title_match.group(1).strip() if title_match else ""
+        # html_content = html_match.group(1).strip() if html_match else ""
+        # link_content = link_match.group(1).strip() if link_match else ""
 
         self.title_edit.setText(title_content)
         self.content.setHtml(html_content)
-        self.links.setPlainText(link_content)
-
-
-    # def load_content(self):
-    #     if not os.path.isfile(self.content_path):
-    #         log.info(f"内容文件不存在: {self.content_path}")
-    #         return
-    #     with open(self.content_path, 'r', encoding='utf-8') as f:
-    #         html = f.read()
-    #         self.content.setHtml(html)
-    #
-    # def load_links(self):
-    #     if not os.path.isfile(self.link_path):
-    #         log.info(f"链接文件不存在: {self.link_path}")
-    #         return
-    #     with open(self.link_path, 'r', encoding='utf-8') as f:
-    #         links_text = f.read()
-    #         self.links.setPlainText(links_text)
-
-
-    # def save_file_as(self):
-    #     """另存为文件"""
-    #     file_path, _ = QFileDialog.getSaveFileName(
-    #         self, "另存为", "",
-    #         "富文本文件 (*.html);;所有文件 (*)")
-    #     if file_path:
-    #         # 确保文件有.html扩展名
-    #         if not file_path.endswith('.html'):
-    #             file_path += '.html'
-    #         self.content_path = file_path
-    #         self.setWindowTitle(f"文档编辑器 - {os.path.basename(file_path)}")
-    #         return self.save_file()
-    #     return False
+        self.links.setPlainText(link_text_content)
+        for link in link_content:
+            self.links_related.addItem(link)
 
     def save_file(self):
         """保存文件"""
-        # if not self.content_path:
-        #     return self.save_file_as()
-
-        try:
-            html = self.content.toHtml()
-            # with open(self.content_path, 'w', encoding='utf-8') as f:
-            #     f.write(html)
-            # self.content.document().setModified(False)
-            # with open(self.link_path, "w", encoding="utf-8") as f:
-            #     f.write(self.links.toPlainText())
-
-            content = (
-                f"{CardDetail.TITLE_BEGIN}\n{self.title_edit.text()}\n{CardDetail.TITLE_END}\n"
-                f"{CardDetail.HTML_BEGIN}\n{html}\n{CardDetail.HTML_END}\n"
-                f"{CardDetail.LINK_BEGIN}\n{self.links.toPlainText()}\n{CardDetail.LINK_END}\n"
-            )
-
-            with open(self.file_path, 'w', encoding='utf-8') as f:
-                f.write(content)
-
-            return True
-        except Exception as e:
-            log.critical(f"错误 无法保存文件: {str(e)}")
-            QMessageBox.critical(self, "错误", f"无法保存文件: {str(e)}")
-
-            return False
-
+        processer = DiaryFileProcesser(self.file_path)
+        processer.save_file(
+            self.title_edit.text(),
+            self.content.toHtml(),
+            self.links.toPlainText(),
+            self.links_related_list
+        )
 
     def change_title(self):
         self.title = self.title_edit.text()
         self.save_file()
         signal_bus.changeTitle.emit(self.title, self._id)
+
+    def add_link(self):
+
+        link = self.links_combo.currentText()
+        if link in self.links_related_list:
+            return
+        self.links_related.addItem(link)
+        self.save_file()
+        # 添加链接 同时对侧也需要添加链接
+        op_path = get_op_file_path(link)
+        if op_path is not None:
+            processer = DiaryFileProcesser(op_path)
+            processer.sync_links(self.title)
+
+    def delete_link(self,index):
+        link = self.links_related.cur_item.text()
+        self.save_file()
+        # 删除链接 同时对侧也需要删除链接
+        op_path = get_op_file_path(link)
+        if op_path is not None:
+            processer = DiaryFileProcesser(op_path)
+            processer.sync_links(self.title)
 

@@ -19,7 +19,7 @@ class CardThumbnail(QLabel):
         self.add_connects()
 
     def add_connects(self):
-        signal_bus.changeTitle.connect(self.update_title)
+        signal_bus.changeTitle.connect(self.update_title, self.id)
 
     def mouseReleaseEvent(self, e):
         """鼠标释放事件处理"""

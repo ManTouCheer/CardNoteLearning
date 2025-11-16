@@ -11,7 +11,7 @@ from qt_material import apply_stylesheet
 from src.card_note_learning.card_creator import NodeCardCreator
 from src.utils.m_logging import log
 from src.card_note_learning.signal_bus import signal_bus
-from src.utils.m_config import config
+from src.utils.m_config import CONFIG, DATA_TOP, save_data_top
 from src.m_widgets.flow_layout import FlowLayout
 
 
@@ -23,20 +23,12 @@ class ClassifyWidget(QWidget):
         self.cols = 6
         self.setLayout(self._layout)
 
-
     def injection_cards(self, data):
         self.classify = "全部"
-        # self.h_layout = QHBoxLayout()
         for idx, d in enumerate(data):
-            # if idx % self.cols == 0 and idx != 0:
-            #     self._layout.addLayout(
-            #         self.h_layout
-            #     )
-            #     self.h_layout = QHBoxLayout()
             self._layout.addWidget(
                 d
             )
-        # self._layout.addStretch()
 
     def add_card(self, card):
         self._layout.addWidget(
@@ -56,12 +48,10 @@ class NodeCardApp(QMainWindow):
         self.add_connects()
 
     def init_data(self):
-        with open(config["data_top_path"], 'r', encoding='utf-8') as f:
-            self.data = json.load(f)
-
+        self.data = DATA_TOP
         w = ClassifyWidget()
-        for d in self.data["cards"]:
-            d["file_path"] = config["daily_path"]
+        for d in self.data:
+            d["file_path"] = CONFIG["daily_path"]
             node_card: NodeCardCreator = NodeCardCreator.create(d)
             self.node_cards[node_card._id] = node_card
         w.injection_cards([x.get_card_thumbnail() for _, x in self.node_cards.items()])
@@ -97,7 +87,7 @@ class NodeCardApp(QMainWindow):
         log.info(f"更新标题{id}为{new_title}")
         self.node_cards[_id].title = new_title
         # 更新缩略图标题
-        for card in self.data["cards"]:
+        for card in self.data:
             if card["id"] == _id:
                 card["title"] = new_title
                 log.info(f"标题修改为：{new_title}")
@@ -116,7 +106,7 @@ class NodeCardApp(QMainWindow):
             "id": str(uuid.uuid4()),
             "title": "新日记",
             "cover": "",
-            "file_path": config["daily_path"]
+            "file_path": CONFIG["daily_path"]
         }
         self.data["cards"].append(new_card_data)
         new_card: NodeCardCreator = NodeCardCreator.create(new_card_data)
@@ -128,9 +118,10 @@ class NodeCardApp(QMainWindow):
         signal_bus.change2Detail.emit(new_card._id)
 
     def save_cards(self):
-        with open(config["data_top_path"], 'w', encoding='utf-8') as f:
-            json.dump(self.data, f, ensure_ascii=False, indent=4)
-        log.info("保存卡片数据完成")
+        save_data_top(self.data)
+        # with open(CONFIG["data_top_path"], 'w', encoding='utf-8') as f:
+        #     json.dump(self.data, f, ensure_ascii=False, indent=4)
+
 
     def add_connects(self):
         signal_bus.change2Detail.connect(self.show_edit_windows)

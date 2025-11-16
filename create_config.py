@@ -48,7 +48,7 @@ if os.path.isfile(node_cards_top_path):
         data = json.load(f)
         re_write_all = True if "cards" not in data else False
         # exits_keys = list(data["cards"][0].keys())
-        for key, value in data_struct.items():
+        for key, value in data_struct["cards"][0].items():
             if key not in data["cards"][0]:
                 missing_keys.append(key)
         if len(missing_keys) > 0:
@@ -60,7 +60,7 @@ if os.path.isfile(node_cards_top_path):
             log.info(f"重新创建配置文件 {node_cards_top_path} ")
     elif len(missing_keys) > 0:
         for card in orginal_data["cards"]:
-            for key, value in card.items():
+            for key in list(card.keys()):
                 for miss_key in missing_keys:
                     card[miss_key] = data_struct["cards"][0][miss_key]
         with open(node_cards_top_path, 'w', encoding='utf-8') as f_w:
