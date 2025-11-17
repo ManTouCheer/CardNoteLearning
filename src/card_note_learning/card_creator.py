@@ -39,6 +39,7 @@ class NodeCardCreator(QWidget):
         self.card_d = CardDetail(
             self._id,
             self.title,
-            self.file_path
+            self.file_path,
+            self
         )
         return self.card_d

@@ -129,7 +129,9 @@ def get_op_file_path(file_name):
 
 
 def replace_links_content(original_text, new_content, pattern):
-
+    ## TODO 本判断在下一次升级时删除
+    if not re.search(pattern, original_text, flags=re.DOTALL):
+        return original_text + f"{LINK_LIST_BEGIN}\n{new_content}\n{LINK_LIST_END}\n"
     # 替换为：起始标记 + 新内容 + 结束标记（保持标记不变，仅替换中间内容）
     replaced_text = re.sub(
         pattern,
