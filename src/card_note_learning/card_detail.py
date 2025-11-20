@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QPlainTextEdit, QHBoxLayout,
 
 from src.card_note_learning.signal_bus import signal_bus
 from src.utils.m_logging import log
-from utils.diary_file_processer import DiaryFileProcesser, get_op_file_path
+from utils.diary_file_processer import DiaryFileProcesser, get_op_file_path, load_all_diary_title
 from utils.m_config import DATA_TOP
 
 
@@ -154,11 +154,14 @@ class LinkList(QListWidget):
 
 
 class CardDetail(QWidget):
-    def __init__(self,_id, title, data_path, parent=None):
+    def __init__(self,_id, title, file_path, parent=None):
         super().__init__(parent)
         self._id = _id
         self.title = title
-        self.file_path = os.path.join(data_path, f"{self._id}.txt")
+        self.file_path = file_path
+        self.html_content = ""
+        self.link_text_content = ""
+        self.link_content = []
         self.initUI()
         self.load_file()
 
@@ -213,14 +216,17 @@ class CardDetail(QWidget):
         return [self.links_related.item(idx).text() for idx in range(self.links_related.count())]
 
     def load_file(self):
-        file_processer = DiaryFileProcesser(self.file_path)
-        title_content = file_processer.get_title()
-        html_content = file_processer.get_content_html()
-        link_text_content = file_processer.get_links_text()
-        link_content = file_processer.get_links()
+        if os.path.exists(self.file_path):
+            file_processer = DiaryFileProcesser(self.file_path)
+            self.title = file_processer.get_title()
+            self.html_content = file_processer.get_content_html()
+            self.link_text_content = file_processer.get_links_text()
+            self.link_content = file_processer.get_links()
+        else:
+            self.create_file()
 
-        for card in DATA_TOP:
-            self.links_combo.addItem(card['title'])
+        for title in load_all_diary_title():
+            self.links_combo.addItem(title)
         # if not os.path.exists(self.file_path):
         #     return
         #
@@ -251,10 +257,10 @@ class CardDetail(QWidget):
         # html_content = html_match.group(1).strip() if html_match else ""
         # link_content = link_match.group(1).strip() if link_match else ""
 
-        self.title_edit.setText(title_content)
-        self.content.setHtml(html_content)
-        self.links.setPlainText(link_text_content)
-        for link in link_content:
+        self.title_edit.setText(self.title)
+        self.content.setHtml(self.html_content)
+        self.links.setPlainText(self.link_text_content)
+        for link in self.link_content:
             self.links_related.addItem(link)
 
     def save_file(self):
@@ -264,13 +270,24 @@ class CardDetail(QWidget):
             self.title_edit.text(),
             self.content.toHtml(),
             self.links.toPlainText(),
-            self.links_related_list
+            self.links_related_list,
+            str(processer.get_config())
+        )
+
+    def create_file(self):
+        """创建文件"""
+        processer = DiaryFileProcesser(self.file_path)
+        processer.save_file(
+            self.title,
+            self.html_content,
+            self.link_text_content,
+            self.link_content
         )
 
     def change_title(self):
         self.title = self.title_edit.text()
-        self.save_file()
-        signal_bus.changeTitle.emit(self.title, self._id)
+        # self.save_file()
+        # signal_bus.changeTitle.emit(self.title, self._id)
 
     def add_link(self):
 
@@ -280,17 +297,19 @@ class CardDetail(QWidget):
         self.links_related.addItem(link)
         self.save_file()
         # 添加链接 同时对侧也需要添加链接
-        op_path = get_op_file_path(link)
-        if op_path is not None:
-            processer = DiaryFileProcesser(op_path)
-            processer.sync_links(self.title)
+        signal_bus.getOpPath.emit(link, self.title)
+        # op_path = get_op_file_path(link)
+        # if op_path is not None:
+        #     processer = DiaryFileProcesser(op_path)
+        #     processer.sync_links(self.title)
 
     def delete_link(self,index):
         link = self.links_related.cur_item.text()
         self.save_file()
+        signal_bus.getOpPath.emit(link, self.title)
         # 删除链接 同时对侧也需要删除链接
-        op_path = get_op_file_path(link)
-        if op_path is not None:
-            processer = DiaryFileProcesser(op_path)
-            processer.sync_links(self.title, add=False)
+        # op_path = get_op_file_path(link)
+        # if op_path is not None:
+        #     processer = DiaryFileProcesser(op_path)
+        #     processer.sync_links(self.title, add=False)
 
