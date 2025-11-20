@@ -15,7 +15,7 @@ BEFGIN_CONFIG = "===BEFGIN_CONFIG==="
 END_CONFIG = "===END_CONFIG==="
 
 
-with open(r"data/config.json", 'r', encoding='utf-8') as f:
+with open(r"config/config.json", 'r', encoding='utf-8') as f:
     CONFIG = json.load(f)
 DIARY_PATH = CONFIG["daily_path"]
 

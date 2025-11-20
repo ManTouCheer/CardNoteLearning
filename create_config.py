@@ -15,7 +15,7 @@ else:
 
 # 创建配置文件 config.json
 import json
-config_path = "data/config.json"
+config_path = "config/config.json"
 if os.path.isfile(config_path):
     log.info(f"配置文件 {config_path} 已存在 ")
 else:
